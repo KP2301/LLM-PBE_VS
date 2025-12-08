@@ -1,5 +1,3 @@
-conda activate base
-
 pip install -q groq
 
 pip install python-dotenv 
