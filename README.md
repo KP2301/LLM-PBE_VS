@@ -1,11 +1,16 @@
 conda activate base
 
 
-pip install python-dotenv 
+pip install -q groq
 
+
+pip install python-dotenv 
 
 
 pip install jsonlines 
 
 
 pip install rapidfuzz
+
+
+pip install tranformer
