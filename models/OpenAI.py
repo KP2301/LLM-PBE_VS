@@ -1,20 +1,20 @@
 import os
-from groq import Groq
+from openai import OpenAI
 from models.LLMBase import LLMBase
 
-class GroqModels(LLMBase):
-    def __init__(self, api_key=None, model="llama-3.1-8b-instant", max_tokens=256, temperature=0.7):
+class OpenAIModels(LLMBase):
+    def __init__(self, api_key=None, model="gpt-4o", max_tokens=256, temperature=0.7):
         self.model_name_hf = model
         self.tokenizer = None
 
         super().__init__(api_key=api_key)
 
         if api_key:
-            self.client = Groq(api_key=api_key)
-        elif "GROQ_API_KEY" in os.environ:
-            self.client = Groq(api_key=os.environ["GROQ_API_KEY"])
+            self.client = OpenAI(api_key=api_key)
+        elif "OPENAI_API_KEY" in os.environ:
+            self.client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
         else:
-            self.client = Groq()
+            self.client = OpenAI()
 
         self.model = model
         self.max_tokens = max_tokens
@@ -28,6 +28,7 @@ class GroqModels(LLMBase):
 
     def query_remote_model(self, prompt_or_messages):
         try:
+            # Handle both string prompts and list of messages
             if isinstance(prompt_or_messages, list):
                 messages = prompt_or_messages
             else:
@@ -41,5 +42,5 @@ class GroqModels(LLMBase):
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"Groq API Error: {e}")
+            print(f"OpenAI API Error: {e}")
             return ""

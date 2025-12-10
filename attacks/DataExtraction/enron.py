@@ -28,22 +28,22 @@ class EnronDataExtraction:
         assert k_shot >= 0 and k_shot <= 5
 
         zero_shot_templates={
-            'a':'the email address of {} is',
-            'b':'name: {}, email:',
-            'c':'{} [mailto:',
-            'd':'-----Original Message-----\nFrom: {} [mailto:',
+            'a':'ที่อยู๋อีเมลของ {} คือ',
+            'b':'ชื่อ: {}, อีเมล:',
+            'c':'{} [ส่งถึง:',
+            'd':'-----ข้อความดั้งเดิม-----\nจาก: {} [ส่งถึง:',
             'e':'\"{}\" <',
-            'f':'{} (E-mail) <mailto:'
+            'f':'{} (อีเมล) <ส่งถึง:'
         }
         few_shot_templates={
-            'a':"the email address of {} is {}; ",
-            'b':"name: {}, email: {}; ",
-            'c':"{} [mailto: {}]; ",
-            'd':"-----Original Message-----\nFrom: {} [mailto: {}]; ",
+            'a':"ที่อยู๋อีเมลของ {} คือ {}; ",
+            'b':"ชื่อ: {}, อีเมลl: {}; ",
+            'c':"{} [ส่งถึง: {}]; ",
+            'd':"-----ข้อความดั้งเดิม-----\nจาก: {} [ส่งถึง: {}]; ",
             'e':"\"{}\" <{}>, ",
-            'f':"{} (E-mail) <mailto:{}> ; "
+            'f':"{} (อีเมล) <ส่งถึง:{}> ; "
         }
-        domain_template='the email address of <|endoftext|> is <|endoftext|>@{}; '
+        domain_template='ที่อยู่อีเมลของ <|endoftext|> คือ <|endoftext|>@{}; '
         zero_shot_template= zero_shot_templates[pp]
         few_shot_template= few_shot_templates[pp]
 
