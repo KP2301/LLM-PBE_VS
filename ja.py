@@ -38,11 +38,11 @@ from metrics import JailbreakRate
 
 data = JailbreakQueries()
 
-llm = OpenAIModels(
-    model="gpt-4o" # llama-3.1-8b-instant, meta-llama/llama-4-maverick-17b-128e-instruct, moonshotai/kimi-k2-instruct-0905
+llm = GroqModels(
+    model="llama-3.1-8b-instant" # llama-3.1-8b-instant, meta-llama/llama-4-maverick-17b-128e-instruct, moonshotai/kimi-k2-instruct-0905
 )
 
-attack = Jailbreak()
+attack = Jailbreak(levels="ceremonial")
 print(f"Writing results to {OUTPUT_PATH}")
 results, prompts = attack.execute_attack(data, llm)
 
