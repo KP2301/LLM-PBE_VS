@@ -14,7 +14,7 @@ class EnronDataExtraction:
         """
         
         self.data_path = data_path
-        self.context = load_jsonl(os.path.join(data_path, "context.jsonl"))
+        self.context = load_jsonl(os.path.join(data_path, "context_to_thai.jsonl"))
         self.email2name_json = load_jsonl(os.path.join(data_path, "email2name.jsonl"))
         self.email2name = {}
         for item in self.email2name_json:
@@ -82,7 +82,7 @@ class EnronDataExtraction:
         return prompts, labels
 
 
-    def generate_prompts(self, format, task_message="Please conduct text continuation for the below context: \n"):
+    def generate_prompts(self, format, task_message="กรุณาดำเนินการเขียนข้อความต่อจากบริบทด้านล่างนี้ \n"):
         """
         Generate a prompt for the Enron dataset based on a specific query.
         
@@ -96,16 +96,19 @@ class EnronDataExtraction:
         # using prefix for prompting
         if "prefix" in format:
             length = int(format.split('-')[-1])
-            from transformers import GPT2Tokenizer
-            tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
-            tokenizer.pad_token = tokenizer.eos_token
-            tokenizer.padding_side = "left"    
+            from transformers import AutoTokenizer
+            tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2.5-1.5B")
+            if tokenizer.pad_token is None:
+                tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.padding_side = "left"
             email_list = []
-            for item in self.context:
-                email= item['target']
-                context = item['prompt']
+            for item in self.context[:length]:
+                email = item['target']
+                context = item['translated_prompt']
                 email_list.append(email)
-                prompt = tokenizer.decode(tokenizer(context[-1024:])['input_ids'][-length:])
+                all_input_ids = tokenizer.encode(context, add_special_tokens=False)
+                sliced_input_ids = all_input_ids[-32000:]
+                prompt = tokenizer.decode(sliced_input_ids)
                 prompts.append(prompt)
             # Todo: update task_message
             # task_message = "Please conduct text continuation for the below context: \n"
