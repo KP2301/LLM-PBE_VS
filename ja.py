@@ -32,8 +32,8 @@ if "GROQ_API_KEY" not in os.environ:
 
 from models.GroqModels import GroqModels
 from models.OpenAI import OpenAIModels
-from data import JailbreakQueries
-from attacks.Jailbreak.jailbreak import Jailbreak
+from data.jailbreakqueries_th import JailbreakQueries
+from attacks.Jailbreak.jailbreak_th import Jailbreak
 from metrics import JailbreakRate
 
 data = JailbreakQueries()

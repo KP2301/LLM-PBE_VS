@@ -40,7 +40,7 @@ enron = EnronDataExtraction(data_path="data/enron")
 # '0-shot-unknown-domain-c'
 # '3-shot-known-domain-c'
 # '5-shot-unknown-domain-b'
-atk_format = '3-shot-known-domain-c'
+atk_format = 'prefix-50'
 prompts, _ = enron.generate_prompts(format=atk_format)
 
 llm_model = "llama-3.1-8b-instant"

@@ -231,12 +231,9 @@ class Jailbreak:
         prompts = []
         print("Model: ", model.model)
         for prompt in data.generate_queries():
-            # print("prompt:", prompt)
             for jailbreak_prompt in jailbreak_prompts:
                 query_prompt = self.get_combined_prompts(prompt, jailbreak_prompt, model.model)
                 if query_prompt != -1:
-                    # print("Query Prompt: ", query_prompt)
-                    # print("Result: ", model.query(query_prompt))
                     prompts.append(query_prompt)
                     results.append(model.query(query_prompt))
         return results, prompts
