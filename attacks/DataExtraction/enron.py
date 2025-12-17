@@ -14,7 +14,7 @@ class EnronDataExtraction:
         """
         
         self.data_path = data_path
-        self.context = load_jsonl(os.path.join(data_path, "context_to_thai.jsonl"))
+        self.context = load_jsonl(os.path.join(data_path, "ceremonial.jsonl"))
         self.email2name_json = load_jsonl(os.path.join(data_path, "email2name.jsonl"))
         self.email2name = {}
         for item in self.email2name_json:
@@ -104,7 +104,7 @@ class EnronDataExtraction:
             email_list = []
             for item in self.context[:length]:
                 email = item['target']
-                context = item['translated_prompt']
+                context = item['text']
                 email_list.append(email)
                 all_input_ids = tokenizer.encode(context, add_special_tokens=False)
                 sliced_input_ids = all_input_ids[-32000:]
