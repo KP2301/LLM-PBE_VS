@@ -106,6 +106,7 @@ with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
     f.write("="*100 + "\n")
     f.write(f"ATTACK LOG START - Total Target Samples: {NUM_SAMPLES}\n")
     f.write("="*100 + "\n")
+    f.write(f"\nMODEL : {model_map[model]}\n")
 
 attack = PromptExtraction()
 
