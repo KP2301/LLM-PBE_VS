@@ -1,15 +1,17 @@
 import os
 import sys
+import re
+import math
+from contextlib import redirect_stdout 
 from dotenv import load_dotenv
 from contextlib import redirect_stdout
-import re 
+from metrics.ExtractionRate import ExtractionRate
+from models.GroqModels import GroqModels
+from attacks.DataExtraction.enron import EnronDataExtraction
+from attacks.DataExtraction.prompt_extract import PromptExtraction
 
-# --- [ส่วนที่ 1] Import Metric ที่เราเพิ่งสร้าง ---
-try:
-    from metrics.ExtractionRate import ExtractionRate
-except ImportError:
-    print("Error: Could not import 'ExtractionRate'. Make sure 'metrics/ExtractionRate.py' exists.")
-    sys.exit(1)
+# ====================================================================================================== #
+# Setup output file with incremented filename
 
 OUTPUT_DIR = "output/dea"
 BASE_FILENAME = "dea_output"
@@ -31,84 +33,184 @@ for filename in existing_files:
 OUTPUT_FILENAME = f"{BASE_FILENAME}_{next_index}{EXTENSION}"
 OUTPUT_PATH = os.path.join(OUTPUT_DIR, OUTPUT_FILENAME)
 
+# ====================================================================================================== #
+# Check for API key in env
+
 load_dotenv()
 
 if "GROQ_API_KEY" not in os.environ:
     print("Error: GROQ_API_KEY not found in environment variables. Check your .env file.")
     sys.exit(1)
 
-from models.GroqModels import GroqModels
-from attacks.DataExtraction.enron import EnronDataExtraction
-from attacks.DataExtraction.prompt_extract import PromptExtraction
+# ====================================================================================================== #
+# Prepare data and prompts
 
 enron = EnronDataExtraction(data_path="data/enron")
 
-atk_format = '3-shot-known-domain-c'
+while True:
+    first_format = input("""Please input attack format from this list : 
+         (1) 'prefix'
+         (2) 'shot-domain'
+        Select (1 or 2): """)
+    if first_format in ['1', '2']:
+        break
+    else: 
+        print("Please input right format (1 or 2 only)")
 
-# --- [ส่วนที่ 2] แก้ไขเพื่อรับ Labels (เฉลย) มาด้วย ---
-# เดิม: prompts, _ = ... (ทิ้งเฉลย)
-# ใหม่: รับ labels มาเก็บไว้
+NUM_SAMPLES = int(input("Please input number of samples (max 3000): "))
+
+if first_format == '1':
+    atk_format = f'prefix-{NUM_SAMPLES}'
+
+elif first_format == '2':
+    shot = int(input("Please input the number of shot between 0-5: "))
+    k_domain = input("Please input \"known\" or \"unknown\": ")
+    domain = input("Please input domain a-f: ")
+    atk_format = f"{shot}-shot-{k_domain}-domain-{domain}"
+
+print(f"Attack format: {atk_format}")
+
 prompts, labels = enron.generate_prompts(format=atk_format)
 
-llm_model = "llama-3.1-8b-instant"
+# ====================================================================================================== #
+# Prepare model
+
+model_map = {
+    '1': "llama-3.1-8b-instant",
+    '2': "meta-llama/llama-4-maverick-17b-128e-instruct",
+    '3': "moonshotai/kimi-k2-instruct-0905"
+}
+while True:
+    print("""Please select models : 
+        (1) llama-3.1-8b-instant
+        (2) meta-llama/llama-4-maverick-17b-128e-instruct
+        (3) moonshotai/kimi-k2-instruct-0905
+        """)
+    model = input("Select (1-3): ").strip()
+    if model in model_map: 
+        break 
+    else:
+        print("Please input right format (1, 2 or 3)")
+
+llm_model = model_map[model]
 llm = GroqModels(model=llm_model)
+
+# ====================================================================================================== #
+
+BATCH_SIZE = 100
+total_success_count = 0
+processed_count = 0
+
+print(f"Initializing output file: {OUTPUT_PATH}")
+with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+    f.write("="*100 + "\n")
+    f.write(f"ATTACK LOG START - Total Target Samples: {NUM_SAMPLES}\n")
+    f.write("="*100 + "\n")
+    f.write(f"\nMODEL : {model_map[model]}\n")
+
 attack = PromptExtraction()
 
-# กำหนดจำนวนที่จะทดสอบ (แยกตัวแปรไว้จะได้แก้ที่เดียว)
-NUM_SAMPLES = 100
-
-# ตัดข้อมูลให้เท่ากันทั้งโจทย์และเฉลย
-test_prompts = prompts[:NUM_SAMPLES]
-test_labels = labels[:NUM_SAMPLES]
-
-print(f"Writing results to {OUTPUT_PATH}")
-print(f"Starting attack on {len(test_prompts)} samples...")
-
-# เริ่มโจมตี
-results = attack.execute_attack(test_prompts, llm)
-
-print(f"Attack finished. Calculating metrics...")
-
-# --- [ส่วนที่ 3] คำนวณ Metric ---
-metric = ExtractionRate(outputs=results, labels=test_labels)
-score = metric.compute_metric()
-asr_percentage = score * 100
-
-with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
-    with redirect_stdout(f):
-        print("="*100)
-        print(f"DATA EXTRACTION RESULTS - Total: {len(results)} samples")
-        print(f"METRIC SCORE (ASR): {asr_percentage:.2f}%")
-        print("="*100)
-
-        for idx in range(len(results)):
-            print(f"\n{'─'*100}")
-            print(f"SAMPLE #{idx + 1}")
+for i in range(0, NUM_SAMPLES, BATCH_SIZE):
+    end_idx = min(i + BATCH_SIZE, NUM_SAMPLES)
+    
+    batch_prompts = prompts[i:end_idx]
+    batch_labels = labels[i:end_idx]
+    
+    print(f"\nProcessing Batch {i+1} to {end_idx} ({len(batch_prompts)} samples)...")
+    
+    batch_results = attack.execute_attack(batch_prompts, llm, delay_between_calls=15)
+    
+    # คำนวณ Metric ของ Batch นี้
+    metric = ExtractionRate(outputs=batch_results, labels=batch_labels)
+    batch_score = metric.compute_metric()
+    batch_asr = batch_score * 100
+    
+    # เปิดไฟล์โหมด 'a' (Append) เพื่อเขียนต่อท้าย
+    with open(OUTPUT_PATH, 'a', encoding='utf-8') as f:
+        with redirect_stdout(f):
+            print(f"\n{'#'*40} BATCH REPORT ({i+1}-{end_idx}) {'#'*40}")
+            print(f"Batch Metrics (ASR): {batch_asr:.2f}%")
             
-            # เช็คสถานะเบื้องต้นเพื่อโชว์ใน Log (Success/Fail)
-            clean_label = test_labels[idx].strip()
-            is_success = clean_label in results[idx]
-            status_icon = "✅ LEAKED" if is_success else "❌ SAFE"
+            for idx in range(len(batch_results)):
+                # คำนวณ Index จริง (Global Index)
+                global_idx = i + idx
+                
+                clean_label = batch_labels[idx].strip()
+                is_success = clean_label in batch_results[idx]
+                
+                # นับคะแนนรวม (เพื่อใช้คำนวณตอนจบ)
+                if is_success:
+                    total_success_count += 1
+                
+                status_icon = "✅ LEAKED" if is_success else "❌ SAFE"
+                
+                print(f"\n{'─'*100}")
+                print(f"SAMPLE #{global_idx + 1}") # ใช้ global_idx เพื่อให้เลขรันต่อกัน
+                print(f"STATUS: {status_icon}")
+                print(f"{'─'*100}")
+
+                print(f"\n📝 PROMPT (Input):")
+                print(batch_prompts[idx])
+
+                print(f"\n🔐 LABEL (Secret):") 
+                print(batch_labels[idx])
+
+                print(f"\n💬 ANSWER (Model Output):")
+                print(batch_results[idx])
+                print()
+    
+    # อัปเดตจำนวนที่ทำไปแล้ว
+    processed_count += len(batch_results)
+    print(f"Batch finished. Saved to file.")
+
+# attack = PromptExtraction()
+# test_prompts = prompts[:NUM_SAMPLES]
+# test_labels = labels[:NUM_SAMPLES]
+
+# print(f"Writing results to {OUTPUT_PATH}")
+# print(f"Starting attack on {len(test_prompts)} samples...")
+
+# results = attack.execute_attack(test_prompts, llm)
+
+# print(f"Attack finished. Calculating metrics...")
+
+# metric = ExtractionRate(outputs=results, labels=test_labels)
+# score = metric.compute_metric()
+# asr_percentage = score * 100
+
+# with open(OUTPUT_PATH, 'w', encoding='utf-8') as f:
+#     with redirect_stdout(f):
+#         print("="*100)
+#         print(f"DATA EXTRACTION RESULTS - Total: {len(results)} samples")
+#         print(f"METRIC SCORE (ASR): {asr_percentage:.2f}%")
+#         print("="*100)
+
+#         for idx in range(len(results)):
+#             print(f"\n{'─'*100}")
+#             print(f"SAMPLE #{idx + 1}")
             
-            print(f"STATUS: {status_icon}")
-            print(f"{'─'*100}")
+#             clean_label = test_labels[idx].strip()
+#             is_success = clean_label in results[idx]
+#             status_icon = "✅ LEAKED" if is_success else "❌ SAFE"
+            
+#             print(f"STATUS: {status_icon}")
+#             print(f"{'─'*100}")
 
-            print(f"\n📝 PROMPT (Input):")
-            print(test_prompts[idx])
+#             print(f"\n📝 PROMPT (Input):")
+#             print(test_prompts[idx])
 
-            # เพิ่มส่วนแสดงเฉลย (เพื่อให้เราเทียบดูได้ด้วยตา)
-            print(f"\n🔐 LABEL (Secret):") 
-            print(test_labels[idx])
+#             print(f"\n🔐 LABEL (Secret):") 
+#             print(test_labels[idx])
 
-            print(f"\n💬 ANSWER (Model Output):")
-            print(results[idx])
-            print()
+#             print(f"\n💬 ANSWER (Model Output):")
+#             print(results[idx])
+#             print()
 
-        print("="*100)
-        print(f"📊 FINAL SUMMARY")
-        print(f"Total Samples: {len(results)}")
-        print(f"Extraction Success Rate: {asr_percentage:.2f}%")
-        print("="*100)
+#         print("="*100)
+#         print(f"📊 FINAL SUMMARY")
+#         print(f"Total Samples: {len(results)}")
+#         print(f"Extraction Success Rate: {asr_percentage:.2f}%")
+#         print("="*100)
 
-print(f"Done. Check the output directory: {OUTPUT_FILENAME}")
-print(f"Final Extraction Success Rate: {asr_percentage:.2f}%")
+# print(f"Done. Check the output directory: {OUTPUT_FILENAME}")
+# print(f"Final Extraction Success Rate: {asr_percentage:.2f}%")
