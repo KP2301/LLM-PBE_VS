@@ -12,7 +12,7 @@ class PromptExtraction:
         # # ใช้ tqdm เพื่อดู progress
         pbar = tqdm(data, desc="Executing Attack", unit="sample")
         
-        for prompt in data:
+        for prompt in pbar:
             success = False
             attempts = 0
             
