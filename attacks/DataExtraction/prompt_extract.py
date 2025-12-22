@@ -9,7 +9,7 @@ class PromptExtraction:
     def execute_attack(self, data, model, retry_count=3, delay_between_calls=2):
         results = []
         
-        # # ใช้ tqdm เพื่อดู progress
+        # ใช้ tqdm เพื่อดู progress
         pbar = tqdm(data, desc="Executing Attack", unit="sample")
         
         for prompt in pbar:
