@@ -14,7 +14,7 @@ class EnronDataExtraction:
         """
         
         self.data_path = data_path
-        self.context = load_jsonl(os.path.join(data_path, "semi_formal_601_1500.jsonl"))
+        self.context = load_jsonl(os.path.join(data_path, "semi_formal_3001_3050.jsonl"))
         self.email2name_json = load_jsonl(os.path.join(data_path, "email2name.jsonl"))
         self.email2name = {}
         for item in self.email2name_json:
